@@ -1,10 +1,10 @@
 # STA-309-A-Final-Exam
 Analyzing the TidyTuesday Coffee Ratings Dataset to Explore Factors Related to Coffee Quality
-- Overview - 
+Overview
 
 Analyzed the TidyTuesday Coffee Ratings dataset to explore factors related to coff ee quality. The goal was to find out what coffee characteristics best predict overall coffee ratings.
 
-- Dataset - 
+Dataset
 
 coffee_ratings.csv
 Source: TidyTuesday Coffee Ratings Dataset
@@ -22,7 +22,7 @@ STA 309 - Final Exam (Clark.rmd).Rmd
 STA-309---Final-Exam--Clark.rmd-.html
 - HTML Output
 
-- Exploratory Data Analysis & Visualization -
+Exploratory Data Analysis & Visualization
 
 Dashboard
 - Coffee Ratings Dashboard.pdf
@@ -35,7 +35,7 @@ Individual Plots
 - Plot #5 (Coffee Ratings by Continent).pdf
 The visualizations help to see the relationships between coffee quality and different predictors.
 
-- Model Comparison - 
+Model Comparison
 
 - Model Performance Comparison.pdf
 - Visualization comparing predictive model RMSE values
@@ -46,7 +46,7 @@ The following predictive models were trained using 5-fold cross-validation:
 4. Random Forest
 5. Neural Network
 
-- Main Findings - 
+Main Findings
 
 1. Higher Aroma and Flavor scores usually led to higher coffee ratings.
 2. Washed/Wet coffees had higher ratings.
