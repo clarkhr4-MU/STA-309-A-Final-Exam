@@ -1,0 +1,419 @@
+---
+title: "Final Exam"
+author: "Harry Clark"
+date: "2026-05-12"
+output: html_document
+---
+
+Final Exam
+
+Part 1: Data Pre-Processing 
+
+```{r}
+
+library(tidyverse)
+library(caret)
+
+# Load Data 
+
+coffee <- read_csv("coffee_ratings.csv")
+
+glimpse(coffee)
+head(coffee)
+
+# Missing Values 
+
+coffee_clean <- coffee %>%
+  filter(!is.na(total_cup_points),
+         !is.na(aroma),
+         !is.na(flavor),
+         !is.na(aftertaste),
+         !is.na(altitude_mean_meters),
+         !is.na(processing_method))
+
+# Recode Categorical Variables
+
+coffee_clean <- coffee_clean %>%
+  mutate(
+    species = as.factor(species),
+    country_of_origin = as.factor(country_of_origin),
+    processing_method = as.factor(processing_method),
+    owner = as.factor(owner))
+
+# Derived Variables 
+# Coffee Quality 
+
+coffee_clean <- coffee_clean %>%
+  mutate(
+    quality_category =
+      case_when(
+        total_cup_points >= 85 ~ "High",
+        total_cup_points >= 80 ~ "Medium",
+        TRUE ~ "Low"))
+
+# Average Sensory Score
+
+coffee_clean <- coffee_clean %>%
+  mutate(
+    avg_sensory =
+      (aroma + flavor + aftertaste) / 3)
+
+# Continent Variable 
+
+coffee_clean <- coffee_clean %>%
+  mutate(
+    continent =
+      case_when(
+        country_of_origin %in%
+          c("Brazil", "Colombia", "Mexico",
+            "Guatemala", "Honduras") ~ "Americas",
+        
+        country_of_origin %in%
+          c("Ethiopia", "Kenya", "Uganda") ~ "Africa",
+        
+        country_of_origin %in%
+          c("Indonesia", "Taiwan", "Thailand",
+            "India") ~ "Asia",
+        
+        TRUE ~ "Other"
+      )
+  )
+
+glimpse(coffee_clean)
+summary(coffee_clean)
+
+# Response Variable: "total_cup_points" 
+# Because it measures the coffee quality score.
+
+## Numeric Predictors:
+# aroma
+# flavor
+# aftertaste
+# altitude_mean_meters
+# avg_sensory
+
+## Categorical Predictors:
+# species
+# processing_method
+# country_of_origin
+# continent
+
+```
+
+Part 2: Exploratory Data Analysis & Visualization
+
+```{r}
+
+library(tidyverse)
+library(ggthemes)
+library(patchwork)
+
+## Plot 1: Aroma vs. Total Cup Points
+
+p1 <- ggplot(coffee_clean,
+             aes(x = aroma,
+                 y = total_cup_points)) +
+  
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm",
+              se = FALSE) +
+  
+  labs(
+    title = "Coffee Aroma vs. Overall Rating",
+    subtitle = "Higher Aroma Scores usually increase Coffee Quality",
+    x = "Aroma Score",
+    y = "Total Cup Points") +
+  
+  theme_minimal()
+
+# Analysis:
+# Coffee w/ higher aroma scores usually has better quality
+
+```
+
+```{r}
+
+## Plot 2: Flavor vs. Total Cup Points
+
+p2 <- ggplot(coffee_clean,
+             aes(x = flavor,
+                 y = total_cup_points)) +
+  
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm",
+              se = FALSE) +
+  
+  labs(
+    title = "Flavor vs. Coffee Rating",
+    subtitle = "Flavor is strongly related to Total Score",
+    x = "Flavor Score",
+    y = "Total Cup Points") +
+  
+  theme_minimal()
+
+# Analysis:
+# Flavor has a strong positive relationship w/ coffee quality. 
+
+```
+
+```{r}
+
+## Plot 3: Processing Method vs. Total Cup Points
+
+p3 <- ggplot(coffee_clean,
+             aes(x = processing_method,
+                 y = total_cup_points)) +
+  
+  geom_boxplot() +
+  coord_flip() +
+  
+  labs(
+    title = "Coffee Rating by Processing Method",
+    subtitle = "Washed/Wet coffees usually have Higher Ratings",
+    x = "Processing Method",
+    y = "Total Cup Points") +
+  
+  theme_minimal()
+
+# Analysis:
+# Different processing methods affect coffee quality.
+
+```
+
+```{r}
+
+## Plot 4: Altitude vs. Total Cup Points
+
+p4 <- ggplot(coffee_clean,
+             aes(x = altitude_mean_meters,
+                 y = total_cup_points)) +
+  
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm",
+              se = FALSE) +
+  
+  labs(
+    title = "Altitude vs. Coffee Rating",
+    subtitle = "Higher Altitude Farms don't produce Higher Quality Coffee",
+    x = "Altitude (Meters)",
+    y = "Total Cup Points") +
+  
+  theme_minimal()
+
+# Analysis:
+# It looks like there's a negative relationship between altitude & coffee quality.
+# Though, coffee ratings change little across altitudes.
+
+```
+
+```{r}
+
+## Plot 5: Continent vs. Total Cup Points
+
+p5 <- ggplot(coffee_clean,
+             aes(x = continent,
+                 y = total_cup_points,
+                 fill = continent)) +
+  
+  geom_boxplot() +
+  
+  labs(
+    title = "Coffee Ratings by Continent",
+    subtitle = "African coffees have Higher Ratings than Other Regions",
+    x = "Continent",
+    y = "Total Cup Points") +
+  
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Analysis:
+# Africa appears to have the highest rating of coffee quality distribution.
+
+```
+
+```{r}
+
+## Dashboard 
+
+(p1 | p2) / (p3 | p4) / p5
+
+```
+
+Part 3: Predictive Modeling
+
+```{r}
+
+library(tidyverse)
+library(caret)
+library(rpart)
+library(randomForest)
+library(nnet)
+
+# Split Data 
+
+set.seed(100)
+
+train_index <- sample(1:nrow(coffee_clean),
+                      size = 0.7 * nrow(coffee_clean))
+
+coffee_train <- coffee_clean[train_index, ]
+coffee_test <- coffee_clean[-train_index, ]
+
+# 5-Fold Cross-Validation
+
+ctrl <- trainControl(method = "cv",
+                     number = 5)
+
+## Model 1: Linear Regression (Subset)
+
+mod1 <- train(total_cup_points ~ aroma + flavor + aftertaste,
+              data = coffee_train,
+              method = "lm",
+              trControl = ctrl)
+
+# Rationale:
+# This is the simplest regression model and it only uses the strongest predictors.
+
+```
+
+```{r}
+
+## Model 2: Linear Regression (All)
+
+mod2 <- train(total_cup_points ~ aroma +
+                flavor +
+                aftertaste +
+                altitude_mean_meters +
+                species +
+                processing_method +
+                continent,
+              data = coffee_train,
+              method = "lm",
+              trControl = ctrl)
+
+# Rationale:
+# This model uses both numeric and categorical predictors to see if more information improves prediction.
+
+```
+
+```{r}
+
+## Model 3: Regression Tree
+
+mod3 <- train(total_cup_points ~ aroma +
+                flavor +
+                aftertaste +
+                altitude_mean_meters +
+                processing_method,
+              data = coffee_train,
+              method = "rpart",
+              trControl = ctrl)
+
+# Rationale:
+# A tree model shows you interactions and non linear relationships between predictors.
+
+```
+
+```{r}
+
+## Model 4: Random Forest 
+
+mod4 <- train(total_cup_points ~ aroma +
+                flavor +
+                aftertaste +
+                altitude_mean_meters +
+                processing_method +
+                continent,
+              data = coffee_train,
+              method = "rf",
+              trControl = ctrl,
+              importance = TRUE)
+
+# Rationale:
+# Random forests combine trees together and can improve prediction accuracy.
+
+```
+
+```{r}
+
+## Model 5: Neural Network 
+
+mod5 <- train(total_cup_points ~ aroma +
+                flavor +
+                aftertaste +
+                altitude_mean_meters,
+              data = coffee_train,
+              method = "nnet",
+              linout = TRUE,
+              trace = FALSE,
+              trControl = ctrl)
+
+# Rationale:
+# Neural networks are flexible and can learn complex patterns in the data.
+
+```
+
+```{r}
+
+## Comparing Performance
+
+mod1$results
+
+mod2$results
+
+mod3$results
+
+mod4$results
+
+mod5$results
+
+## Lowest RMSE: 1.302145
+## Best Model: Random Forest 
+
+```
+
+Part 4: Model Comparison
+
+```{r}
+
+## Comparison Table 
+
+model_results <- tibble(
+  
+  Model = c("Linear Regression (Small)",
+            "Linear Regression (All)",
+            "Regression Tree",
+            "Random Forest",
+            "Neural Network"),
+  RMSE = c(1.323303,
+           1.425531,
+           1.913825,
+           1.302145,
+           1.370282))
+
+model_results
+
+## Visualization 
+
+ggplot(model_results,
+       aes(x = reorder(Model, RMSE),
+           y = RMSE,
+           fill = Model)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Model Performance Comparison",
+    subtitle = "Lower RMSE = Better Prediction Accuracy",
+    x = "Model",
+    y = "RMSE") +
+  
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+1.) Best Model: The Random Forest model performed best because it had the lowest RMSE of 1.30. This means it made the most accurate predictions. The smaller linear regression model also performed very well and it was simpler to understand. Even though the Random Forest performed best, it is harder to interpret than linear regression models.
+
+2.) Alternative Metrics: MAE and R squared are other very useful metrics. MAE measures the average prediction error directly and R squared shows how much of the variation in coffee ratings is explained by the model.
+
+3.) Implications of Predictions: The results show that coffee ratings can be predicted pretty well using sensory variables. Aroma and flavor were two of the strongest predictors and this is evidence that coffee quality scores are strongly connected to these sensory variables.
